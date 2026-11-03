@@ -87,6 +87,8 @@ const MM_SNAPSHOT={"branches":["فرع اكتوبر","فرع الاسكندري�
    البيك أب: Done = تم الالتقاط من اليوم الأول · In progress = مُرحَّل · Fail = فشل
    الميديل مايل: خرجت = حالة «في الطريق للفرع» · مرحّلة = أي حالة أخرى · الإجمالي = الكل */
 const ST_DONE="done",ST_PROG="inprogress",ST_FAIL="fail";
+/* الحالة الثانية (عمود I في Pickup Request) — نفس تصنيف اللوحة الرئيسية */
+const SAME_DAY_RE=/same\s*-?\s*day|نفس\s*اليوم/i, IN_PROGRESS_RE=/in\s*-?\s*progress|قيد\s*التنفيذ/i;
 const MM_OUT_STATUS="في الطريق للفرع";
 const $=id=>document.getElementById(id),esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmt=n=>n==null||isNaN(n)?"–":Math.round(n).toLocaleString("en-US"),pf=(a,b)=>b?(a/b*100).toFixed(1)+"%":"–";
@@ -95,19 +97,22 @@ const mLabel=m=>MN[+m.slice(5)-1]+" "+m.slice(0,4);
 const normSt=s=>String(s||"").toLowerCase().replace(/[\s_\-]/g,"");
 const nk=x=>String(x||"").toLowerCase().replace(/[ً-ٟـ]/g,"").replace(/[أإآ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").replace(/[\s()\-_+.]/g,"");
 const cl=x=>String(x||"").replace(/\s+/g," ").trim();
-const S={kind:ST_FAIL,F:{months:new Set(),from:"",to:""},fm:{st:"loading",recs:[],fail:[],daily:false,hasFail:false,hasProg:false,at:"",err:"",others:new Set()},mm:{st:"loading",recs:[],src:"",at:"",err:""},tab:"reason"};
+const S={kind:ST_FAIL,F:{months:new Set(),from:"",to:""},fm:{st:"loading",recs:[],fail:[],daily:false,hasFail:false,hasProg:false,hasSecond:false,at:"",err:"",others:new Set()},mm:{st:"loading",recs:[],src:"",at:"",err:""},tab:"reason"};
 
 /* ---------- الفيرست مايل ---------- */
 function normFM(d){
-  const {months=[],cities=[],statuses=[],reasons=[],clients=[],rows=[],pickupSummary,statusDetail,failDetail}=d;
+  const {months=[],cities=[],statuses=[],reasons=[],clients=[],rows=[],pickupSummary,statusDetail,failDetail,secondStatuses=[],finalStatuses=[]}=d;
+  const sec=i=>i==null?"":(secondStatuses[i]||""),fin=i=>i==null?"":(finalStatuses[i]||"");
+  const mk=(o)=>{o.sd=SAME_DAY_RE.test(o.sec);o.ip=IN_PROGRESS_RE.test(o.sec);return o};
   const daily=Array.isArray(pickupSummary)&&pickupSummary.length;
-  const recs=daily?pickupSummary.map(([dt,ci,ti,si,ri,n,raw])=>({d:dt,m:String(dt).slice(0,7),st:normSt(statuses[si]),raw:statuses[si],n,sh:raw||0}))
-                  :rows.map(r=>({d:null,m:months[r[0]],st:normSt(statuses[r[5]]),raw:statuses[r[5]],n:r[8],sh:r[10]||0}));
+  const recs=daily?pickupSummary.map(([dt,ci,ti,si,ri,n,raw,sc,fn])=>mk({d:dt,m:String(dt).slice(0,7),st:normSt(statuses[si]),raw:statuses[si],sec:sec(sc),fin:fin(fn),n,sh:raw||0}))
+                  :rows.map(r=>mk({d:null,m:months[r[0]],st:normSt(statuses[r[5]]),raw:statuses[r[5]],sec:sec(r[11]),fin:fin(r[12]),n:r[8],sh:r[10]||0}));
   let fail=[],hasDet=false,hasProgDet=false;
-  if(Array.isArray(statusDetail)){hasDet=hasProgDet=true;fail=statusDetail.map(([dt,cli,ri,ci,n,sh,si])=>({d:dt,m:dt.slice(0,7),client:clients[cli],reason:reasons[ri],st:normSt(statuses[si]),n,sh}))}
-  else if(Array.isArray(failDetail)){hasDet=true;fail=failDetail.map(([dt,cli,ri,ci,n,sh])=>({d:dt,m:dt.slice(0,7),client:clients[cli],reason:reasons[ri],st:ST_FAIL,n,sh}))}
+  if(Array.isArray(statusDetail)){hasDet=hasProgDet=true;fail=statusDetail.map(([dt,cli,ri,ci,n,sh,si,sc,fn])=>mk({d:dt,m:dt.slice(0,7),client:clients[cli],reason:reasons[ri],st:normSt(statuses[si]),sec:sec(sc),fin:fin(fn),n,sh}))}
+  else if(Array.isArray(failDetail)){hasDet=true;fail=failDetail.map(([dt,cli,ri,ci,n,sh])=>mk({d:dt,m:dt.slice(0,7),client:clients[cli],reason:reasons[ri],st:ST_FAIL,sec:"",fin:"",n,sh}))}
   const others=new Set(recs.filter(r=>![ST_DONE,ST_PROG,ST_FAIL].includes(r.st)).map(r=>r.raw));
-  return {recs,daily:!!daily,fail,hasFail:hasDet,hasProg:hasProgDet,others};
+  const hasSecond=secondStatuses.some(v=>v!=="");
+  return {recs,daily:!!daily,fail,hasFail:hasDet,hasProg:hasProgDet,hasSecond,others};
 }
 async function loadFM(){
   if(!CFG.APPS_SCRIPT_URL)throw new Error("لم يتم ضبط APPS_SCRIPT_URL في config.js");
@@ -155,7 +160,7 @@ const snapRecs=s=>s.rows.map(([d,bi,sh,bg,o])=>({d,m:d.slice(0,7),b:s.branches[b
 const okM=m=>!S.F.months.size||S.F.months.has(m);
 const okD=d=>(!S.F.from||d>=S.F.from)&&(!S.F.to||d<=S.F.to);
 const fmRecs=()=>S.fm.recs.filter(r=>okM(r.m)&&(!S.fm.daily||okD(r.d)));
-const failRecs=()=>S.fm.fail.filter(r=>r.st===S.kind&&okM(r.m)&&okD(r.d));
+const failRecs=()=>S.fm.fail.filter(r=>(S.kind===ST_PROG?r.ip:r.st===ST_FAIL)&&okM(r.m)&&okD(r.d));
 const mmRecs=()=>S.mm.recs.filter(r=>okM(r.m)&&okD(r.d));
 function buildFilters(){
   const ms=[...new Set([...S.fm.recs.map(r=>r.m),...S.mm.recs.map(r=>r.m)].filter(Boolean))].sort();
@@ -175,19 +180,20 @@ function renderFM(){
   const f=S.fm,box=$("fm");
   if(f.st==="loading")return;
   if(f.st==="error"){box.innerHTML=`<div class="state err"><b>تعذّر تحميل بيانات البيك أب</b><br><span dir="ltr">${esc(f.err)}</span><br>راجع APPS_SCRIPT_URL في config.js ثم اضغط «تحديث البيانات».</div>`;return}
-  const rs=fmRecs(),a={n:0,d:0,dS:0,p:0,pS:0,f:0,fS:0};
-  rs.forEach(r=>{a.n+=r.n;if(r.st===ST_DONE){a.d+=r.n;a.dS+=r.sh}else if(r.st===ST_PROG){a.p+=r.n;a.pS+=r.sh}else if(r.st===ST_FAIL){a.f+=r.n;a.fS+=r.sh}});
+  const rs=fmRecs(),a={n:0,d:0,dS:0,p:0,pS:0,f:0,fS:0,sd:0,sdS:0,all:0};
+  rs.forEach(r=>{a.n+=r.n;a.all+=r.sh;if(r.st===ST_DONE){a.d+=r.n;a.dS+=r.sh}else if(r.st===ST_FAIL){a.f+=r.n;a.fS+=r.sh}if(r.ip){a.p+=r.n;a.pS+=r.sh}if(r.sd){a.sd+=r.n;a.sdS+=r.sh}});
   const notes=[];
   if(!f.daily)notes.push("الـ Code.gs المنشور لا يرسل pickupSummary: فلتر التاريخ لا يسري على البيك أب (الشهر فقط) وشحنات المُرحَّل تظهر صفرًا. انشر Code.gs المحدّث.");
   else if(!f.hasProg)notes.push("الـ Code.gs المنشور لا يرسل statusDetail: تفاصيل المُرحَّل غير متاحة"+(f.hasFail?" (تفاصيل الفشل تعمل)":" وكذلك الفشل")+". انشر Code.gs المحدّث.");
-  if(f.others.size)notes.push("حالات أخرى غير Done / In progress / Fail موجودة في الشيت وغير محسوبة في الكروت: "+[...f.others].map(esc).join("، "));
+  if(!f.hasSecond)notes.push("عمود I (الحالة الثانية) غير موجود أو فاضٍ في الرد: كارتا «نفس اليوم» و«In progress» صفر. تأكد من نشر Code.gs المحدّث ومن عنوان العمود «الحالة الثانية».");
+  if(f.others.size)notes.push("حالات طلب أخرى غير Done / Fail موجودة في الشيت (لا تدخل كارتي الناجحه والفشل): "+[...f.others].map(esc).join("، "));
   const nb=$("note");nb.innerHTML=notes.join("<br>");nb.classList.toggle("hidden",!notes.length);
-  const tot=a.dS+a.pS+a.fS;
+  const tot=a.all;
   box.innerHTML=`<div class="grid">`+
    card({t:"إجمالي طلبات البيك أب",u:"طلب",v:fmt(a.n),s:`${fmt(f.daily?tot:a.dS)} شحنة${f.daily?"":" (Done فقط)"}`,tone:"--blue",def:"كل الطلبات في الفترة (كل الحالات) ومعها عدد الشحنات"})+
    card({t:"طلبات الناجحه",u:"نسبة من إجمالي الطلبات",v:pf(a.d,a.n),s:`${fmt(a.dS)} شحنة · ${fmt(a.d)} طلب`,tone:"--ok",def:"الحالة = Done — الشحنات مربوطة بهذه الطلبات"})+
-   card({t:"طلبات تم إرسالها في نفس اليوم",u:"طلب",v:"—",tone:"--info",def:"المصدر: <b style='color:var(--warn)'>لم يُحدَّد بعد</b>"})+
-   card({t:"In progress",u:"طلب",v:fmt(a.p),p:pf(a.p,a.n),s:`${f.daily?fmt(a.pS):"–"} شحنة مُرحَّلة · اضغط للأسباب`,tone:"--warn",click:"progCard",def:"الحالة = In progress"})+
+   card({t:"طلبات تم إرسالها في نفس اليوم",u:"طلب",v:fmt(a.sd),p:pf(a.sd,a.n),s:`${f.daily?fmt(a.sdS):"–"} شحنة`,tone:"--info",def:"عمود I (الحالة الثانية) = نفس اليوم"})+
+   card({t:"In progress",u:"طلب",v:fmt(a.p),p:pf(a.p,a.n),s:`${f.daily?fmt(a.pS):"–"} شحنة · اضغط للأسباب`,tone:"--warn",click:"progCard",def:"عمود I (الحالة الثانية) = In progress"})+
    card({t:"فشل",u:"طلب",v:fmt(a.f),p:pf(a.f,a.n),s:"اضغط لعرض الأسباب والعملاء والأيام",tone:"--bad",click:"failCard",def:"الحالة = Fail"})+`</div>`;
   $("progCard").onclick=()=>openDetail(ST_PROG);
   $("failCard").onclick=()=>openDetail(ST_FAIL);
@@ -224,10 +230,13 @@ function renderFail(){
   if(!S.fm.hasFail||(S.kind===ST_PROG&&!S.fm.hasProg)){body.innerHTML='<div class="state">هذه التفاصيل تتطلب نشر Code.gs المحدّث (حقل statusDetail).</div>';return}
   if(!$("t_reason")){body.innerHTML=`<h4 class="dh">الأسباب</h4><div id="t_reason"></div>
     <h4 class="dh">العملاء</h4><input class="srch" id="srch" placeholder="بحث باسم العميل…"><div id="t_client"></div>
-    <h4 class="dh">الأيام</h4><div id="t_day"></div>`;$("srch").oninput=renderFail}
+    <h4 class="dh">الأيام</h4><div id="t_day"></div>
+    <div id="t_finwrap"><h4 class="dh">الحالة النهائية (عمود J)</h4><div id="t_fin"></div></div>`;$("srch").oninput=renderFail}
   const rs=failRecs(),tot=rs.reduce((x,r)=>x+r.n,0),totS=rs.reduce((x,r)=>x+r.sh,0),q=nk($("srch").value);
   $("t_reason").innerHTML=tbl(grp(rs,"reason").sort((a,b)=>b.n-a.n),"السبب",tot,totS);
   $("t_client").innerHTML=tbl(grp(rs,"client").filter(r=>!q||nk(r.k).includes(q)).sort((a,b)=>b.n-a.n),"العميل",tot,totS);
+  $("t_finwrap").classList.toggle("hidden",S.kind!==ST_PROG);
+  if(S.kind===ST_PROG)$("t_fin").innerHTML=tbl(grp(rs.map(r=>({...r,fin:r.fin||"بدون حالة نهائية"})),"fin").sort((a,b)=>b.n-a.n),"الحالة النهائية",tot,totS);
   $("t_day").innerHTML=tbl(grp(rs,"d").sort((a,b)=>a.k<b.k?1:-1),"اليوم",tot,totS);
 }
 function openDetail(k){S.kind=k;$("mdBody").innerHTML="";
@@ -243,7 +252,7 @@ async function refresh(){
   const btn=$("refresh");btn.disabled=true;btn.textContent="جارٍ التحديث…";
   const [fm,mm]=await Promise.allSettled([loadFM(),loadMM()]);
   if(fm.status==="fulfilled")S.fm={st:"ok",...normFM(fm.value),at:now(),err:""};
-  else if(S.fm.st!=="ok")S.fm={st:"error",recs:[],fail:[],daily:false,hasFail:false,hasProg:false,at:"",err:String(fm.reason&&fm.reason.message||fm.reason),others:new Set()};
+  else if(S.fm.st!=="ok")S.fm={st:"error",recs:[],fail:[],daily:false,hasFail:false,hasProg:false,hasSecond:false,at:"",err:String(fm.reason&&fm.reason.message||fm.reason),others:new Set()};
   if(mm.status==="fulfilled")S.mm={st:"ok",recs:mm.value,src:"live",at:now(),err:""};
   else if(S.mm.src!=="live"){S.mm=MM_SNAPSHOT?{st:"ok",recs:snapRecs(MM_SNAPSHOT),src:"snap",at:"",err:""}:{st:"error",recs:[],src:"",at:"",err:String(mm.reason&&mm.reason.message||mm.reason)}}
   buildFilters();render();btn.disabled=false;btn.textContent="تحديث البيانات";
