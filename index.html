@@ -47,6 +47,7 @@ button.card{cursor:pointer}button.card:hover{box-shadow:0 6px 20px rgba(239,68,6
 table{border-collapse:collapse;width:100%;font-size:13px}th{background:var(--blue);color:#fff;padding:8px 10px;text-align:right;position:sticky;top:0;white-space:nowrap}
 td{padding:7px 10px;border-top:1px solid var(--line)}td.n,th.n{text-align:left;font-family:'Inter',sans-serif;direction:ltr}tbody tr:nth-child(even){background:var(--soft)}
 tfoot td{font-weight:800;background:var(--soft);position:sticky;bottom:0}
+.dh{margin:18px 0 8px;font-size:15px;color:var(--ink)}.tw{max-height:40vh}
 .srch{width:100%;border:1px solid var(--line2);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 10px;margin-bottom:8px;font:13px 'Cairo'}
 .hidden{display:none!important}
 </style>
@@ -73,8 +74,6 @@ tfoot td{font-weight:800;background:var(--soft);position:sticky;bottom:0}
 </div>
 <div class="ov hidden" id="ov"><div class="md" role="dialog" aria-modal="true">
   <header><h3 id="mdTitle">تفاصيل الطلبات الفاشلة</h3><button class="x" id="close" aria-label="إغلاق">×</button></header>
-  <div class="tabs" role="tablist"><button class="tab" data-t="reason" aria-selected="true">الأسباب</button><button class="tab" data-t="client" aria-selected="false">العملاء</button><button class="tab" data-t="day" aria-selected="false">الأيام</button></div>
-  <input class="srch hidden" id="srch" placeholder="بحث باسم العميل…">
   <div id="mdBody"></div>
 </div></div>
 
@@ -187,8 +186,8 @@ function renderFM(){
   box.innerHTML=`<div class="grid">`+
    card({t:"إجمالي طلبات البيك أب",u:"طلب",v:fmt(a.n),s:`${fmt(f.daily?tot:a.dS)} شحنة${f.daily?"":" (Done فقط)"}`,tone:"--blue",def:"كل الطلبات في الفترة (كل الحالات) ومعها عدد الشحنات"})+
    card({t:"طلبات الناجحه",u:"نسبة من إجمالي الطلبات",v:pf(a.d,a.n),s:`${fmt(a.dS)} شحنة · ${fmt(a.d)} طلب`,tone:"--ok",def:"الحالة = Done — الشحنات مربوطة بهذه الطلبات"})+
-   card({t:"In progress",u:"طلب",v:fmt(a.p),p:pf(a.p,a.n),s:`${f.daily?fmt(a.pS):"–"} شحنة مُرحَّلة · اضغط للأسباب`,tone:"--warn",click:"progCard",def:"الحالة = In progress"})+
    card({t:"طلبات تم إرسالها في نفس اليوم",u:"طلب",v:"—",tone:"--info",def:"المصدر: <b style='color:var(--warn)'>لم يُحدَّد بعد</b>"})+
+   card({t:"In progress",u:"طلب",v:fmt(a.p),p:pf(a.p,a.n),s:`${f.daily?fmt(a.pS):"–"} شحنة مُرحَّلة · اضغط للأسباب`,tone:"--warn",click:"progCard",def:"الحالة = In progress"})+
    card({t:"فشل",u:"طلب",v:fmt(a.f),p:pf(a.f,a.n),s:"اضغط لعرض الأسباب والعملاء والأيام",tone:"--bad",click:"failCard",def:"الحالة = Fail"})+`</div>`;
   $("progCard").onclick=()=>openDetail(ST_PROG);
   $("failCard").onclick=()=>openDetail(ST_FAIL);
@@ -214,26 +213,29 @@ function render(){renderSrc();renderFM();renderMM();if(!$("ov").classList.contai
 
 /* ---------- تفاصيل الفشل ---------- */
 function grp(rs,key){const g=new Map();rs.forEach(r=>{const k=r[key]||"غير مسجَّل";let x=g.get(k);if(!x)g.set(k,x={k,n:0,sh:0});x.n+=r.n;x.sh+=r.sh});return [...g.values()]}
-function renderFail(){
-  const body=$("mdBody"),t=S.tab;$("srch").classList.toggle("hidden",t!=="client");
-  if(!S.fm.hasFail||(S.kind===ST_PROG&&!S.fm.hasProg)){body.innerHTML='<div class="state">هذه التفاصيل تتطلب نشر Code.gs المحدّث (حقل statusDetail).</div>';return}
-  const rs=failRecs(),tot=rs.reduce((s,r)=>s+r.n,0),totS=rs.reduce((s,r)=>s+r.sh,0);
-  let rows,first;
-  if(t==="reason"){rows=grp(rs,"reason").sort((a,b)=>b.n-a.n);first="سبب الفشل"}
-  else if(t==="client"){const q=nk($("srch").value);rows=grp(rs,"client").filter(r=>!q||nk(r.k).includes(q)).sort((a,b)=>b.n-a.n);first="العميل"}
-  else{rows=grp(rs,"d").sort((a,b)=>a.k<b.k?1:-1);first="اليوم"}
-  body.innerHTML=`<div class="tw"><table><thead><tr><th>${first}</th><th class="n">${S.kind===ST_PROG?"الطلبات المُرحَّلة":"الطلبات الفاشلة"}</th><th class="n">% من الإجمالي</th><th class="n">الشحنات</th></tr></thead>
+function tbl(rows,first,tot,totS){
+  const prog=S.kind===ST_PROG;
+  return `<div class="tw"><table><thead><tr><th>${first}</th><th class="n">${prog?"الطلبات المُرحَّلة":"الطلبات الفاشلة"}</th><th class="n">% من الإجمالي</th><th class="n">الشحنات</th></tr></thead>
   <tbody>${rows.map(r=>`<tr><td>${esc(r.k==="N/A"?"بدون سبب مسجَّل":r.k)}</td><td class="n">${fmt(r.n)}</td><td class="n">${pf(r.n,tot)}</td><td class="n">${fmt(r.sh)}</td></tr>`).join("")||'<tr><td colspan="4">لا بيانات</td></tr>'}</tbody>
   <tfoot><tr><td>الإجمالي (${fmt(rows.length)})</td><td class="n">${fmt(tot)}</td><td class="n">100%</td><td class="n">${fmt(totS)}</td></tr></tfoot></table></div>`;
 }
-function openDetail(k){S.kind=k;S.tab="reason";document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x.dataset.t==="reason"));
+function renderFail(){
+  const body=$("mdBody");
+  if(!S.fm.hasFail||(S.kind===ST_PROG&&!S.fm.hasProg)){body.innerHTML='<div class="state">هذه التفاصيل تتطلب نشر Code.gs المحدّث (حقل statusDetail).</div>';return}
+  if(!$("t_reason")){body.innerHTML=`<h4 class="dh">الأسباب</h4><div id="t_reason"></div>
+    <h4 class="dh">العملاء</h4><input class="srch" id="srch" placeholder="بحث باسم العميل…"><div id="t_client"></div>
+    <h4 class="dh">الأيام</h4><div id="t_day"></div>`;$("srch").oninput=renderFail}
+  const rs=failRecs(),tot=rs.reduce((x,r)=>x+r.n,0),totS=rs.reduce((x,r)=>x+r.sh,0),q=nk($("srch").value);
+  $("t_reason").innerHTML=tbl(grp(rs,"reason").sort((a,b)=>b.n-a.n),"السبب",tot,totS);
+  $("t_client").innerHTML=tbl(grp(rs,"client").filter(r=>!q||nk(r.k).includes(q)).sort((a,b)=>b.n-a.n),"العميل",tot,totS);
+  $("t_day").innerHTML=tbl(grp(rs,"d").sort((a,b)=>a.k<b.k?1:-1),"اليوم",tot,totS);
+}
+function openDetail(k){S.kind=k;$("mdBody").innerHTML="";
   $("mdTitle").textContent=k===ST_PROG?"تفاصيل In progress":"تفاصيل الطلبات الفاشلة";
-  $("ov").style.setProperty("--k",k===ST_PROG?"var(--warn)":"var(--bad)");$("ov").classList.remove("hidden");renderFail()}
+  $("ov").classList.remove("hidden");$("ov").scrollTop=0;renderFail()}
 $("close").onclick=()=>$("ov").classList.add("hidden");
 $("ov").onclick=e=>{if(e.target.id==="ov")$("ov").classList.add("hidden")};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")$("ov").classList.add("hidden")});
-document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===b));renderFail()});
-$("srch").oninput=renderFail;
 
 /* ---------- التحديث ---------- */
 const now=()=>new Date().toLocaleTimeString("ar-EG",{hour:"2-digit",minute:"2-digit"});
