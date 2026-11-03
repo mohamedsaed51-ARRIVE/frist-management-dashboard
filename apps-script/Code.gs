@@ -177,7 +177,7 @@ function doGet(e) {
 
     const bypassCache = params.refresh === '1';
     const cache = CacheService.getScriptCache();
-    const cacheKey = 'first_mile_dashboard_payload_v5';
+    const cacheKey = 'first_mile_dashboard_payload_v6';
 
     if (!bypassCache) {
       const cached = safeCacheGet(cache, cacheKey);
@@ -474,7 +474,7 @@ function buildPayload() {
     rows: pickupResult.rows,
     pickupDays: pickupResult.pickupDays,
     pickupSummary: pickupResult.pickupSummary,
-    failDetail: pickupResult.failDetail,
+    statusDetail: pickupResult.statusDetail,
     driverBranch: branchInfo.driverBranch,
     salaryRef: salaryRef,
     meta: meta
@@ -495,7 +495,7 @@ function readPickupRequest() {
   const monthsSet = {}, citiesSet = {}, areasSet = {}, driversSet = {}, clientsSet = {}, typesSet = {}, statusesSet = {}, reasonsSet = {};
   const groups = {}; // composite-key -> {m,c,a,d,t,s,cl,r,count,fees}
   const pickupDaysRaw = []; // Phase 6A: one un-aggregated entry per valid Pickup-type row (date kept, never merged)
-  const failGroups = {}; // لوحة الإدارة: تفصيل الطلبات الفاشلة (يوم/عميل/سبب/مدينة)
+  const failGroups = {}; // لوحة الإدارة: تفصيل الطلبات غير المكتملة (Fail / In progress / أي حالة غير Done) حسب يوم/عميل/سبب/مدينة/حالة
   const summaryGroups = {}; // لوحة الإدارة: تجميع يومي حسب الحالة/السبب/المدينة/النوع مع الشحنات الخام (بغض النظر عن الحالة)
 
   let totalRecords = 0, processedRows = 0, skippedRows = 0;
@@ -572,9 +572,9 @@ function readPickupRequest() {
       if (!summaryGroups[sk]) summaryGroups[sk] = { d: dStr, c: city, t: type, s: status, r: reason, count: 0, raw: 0 };
       summaryGroups[sk].count += 1;
       summaryGroups[sk].raw += rawShips;
-      if (status === 'Fail') {
-        const fk = [dStr, client, reason, city].join('|');
-        if (!failGroups[fk]) failGroups[fk] = { d: dStr, cl: client, r: reason, c: city, count: 0, raw: 0 };
+      if (status !== 'Done') {
+        const fk = [dStr, client, reason, city, status].join('|');
+        if (!failGroups[fk]) failGroups[fk] = { d: dStr, cl: client, r: reason, c: city, s: status, count: 0, raw: 0 };
         failGroups[fk].count += 1;
         failGroups[fk].raw += rawShips;
       }
@@ -636,14 +636,14 @@ function readPickupRequest() {
     return [g.d, cIdx[g.c], tIdx[g.t], sIdx[g.s], rIdx[g.r], g.count, g.raw];
   });
 
-  // failDetail entry: [date, clientIdx, reasonIdx, cityIdx, failedRequests, rawShipments]
-  const failDetail = Object.keys(failGroups).map(function (k) {
+  // statusDetail entry: [date, clientIdx, reasonIdx, cityIdx, requests, rawShipments, statusIdx]  (كل الحالات غير Done)
+  const statusDetail = Object.keys(failGroups).map(function (k) {
     const g = failGroups[k];
-    return [g.d, clIdx[g.cl], rIdx[g.r], cIdx[g.c], g.count, g.raw];
+    return [g.d, clIdx[g.cl], rIdx[g.r], cIdx[g.c], g.count, g.raw, sIdx[g.s]];
   });
 
   return {
-    months, cities, areas, drivers, clients, types, statuses, reasons, rows, pickupDays, pickupSummary, failDetail,
+    months, cities, areas, drivers, clients, types, statuses, reasons, rows, pickupDays, pickupSummary, statusDetail,
     totalRecords, processedRows, skippedRows, skippedRowReasons,
     hasShipments, totalShipments,
     dateMin, dateMax, recordedYes, recordedNo,

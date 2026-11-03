@@ -42,7 +42,7 @@ button.card{cursor:pointer}button.card:hover{box-shadow:0 6px 20px rgba(239,68,6
 .md header{display:flex;justify-content:space-between;align-items:center;gap:8px}.md h3{margin:0;font-size:17px}
 .x{background:var(--soft);border:1px solid var(--line2);border-radius:8px;width:34px;height:34px;font-size:18px;cursor:pointer;color:var(--ink)}
 .tabs{display:flex;gap:6px;margin:12px 0}.tab{border:1px solid var(--line2);background:var(--card);color:var(--ink2);border-radius:999px;padding:4px 16px;font:700 13px 'Cairo';cursor:pointer}
-.tab[aria-selected=true]{background:var(--bad);border-color:var(--bad);color:#fff}
+.tab[aria-selected=true]{background:var(--k,var(--bad));border-color:var(--k,var(--bad));color:#fff}
 .tw{overflow:auto;max-height:55vh;border:1px solid var(--line);border-radius:10px}
 table{border-collapse:collapse;width:100%;font-size:13px}th{background:var(--blue);color:#fff;padding:8px 10px;text-align:right;position:sticky;top:0;white-space:nowrap}
 td{padding:7px 10px;border-top:1px solid var(--line)}td.n,th.n{text-align:left;font-family:'Inter',sans-serif;direction:ltr}tbody tr:nth-child(even){background:var(--soft)}
@@ -72,7 +72,7 @@ tfoot td{font-weight:800;background:var(--soft);position:sticky;bottom:0}
 <div id="mm"><div class="state">جارٍ تحميل بيانات الميديل مايل…</div></div>
 </div>
 <div class="ov hidden" id="ov"><div class="md" role="dialog" aria-modal="true">
-  <header><h3>تفاصيل الطلبات الفاشلة</h3><button class="x" id="close" aria-label="إغلاق">×</button></header>
+  <header><h3 id="mdTitle">تفاصيل الطلبات الفاشلة</h3><button class="x" id="close" aria-label="إغلاق">×</button></header>
   <div class="tabs" role="tablist"><button class="tab" data-t="reason" aria-selected="true">الأسباب</button><button class="tab" data-t="client" aria-selected="false">العملاء</button><button class="tab" data-t="day" aria-selected="false">الأيام</button></div>
   <input class="srch hidden" id="srch" placeholder="بحث باسم العميل…">
   <div id="mdBody"></div>
@@ -96,17 +96,19 @@ const mLabel=m=>MN[+m.slice(5)-1]+" "+m.slice(0,4);
 const normSt=s=>String(s||"").toLowerCase().replace(/[\s_\-]/g,"");
 const nk=x=>String(x||"").toLowerCase().replace(/[ً-ٟـ]/g,"").replace(/[أإآ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").replace(/[\s()\-_+.]/g,"");
 const cl=x=>String(x||"").replace(/\s+/g," ").trim();
-const S={F:{months:new Set(),from:"",to:""},fm:{st:"loading",recs:[],fail:[],daily:false,hasFail:false,at:"",err:"",others:new Set()},mm:{st:"loading",recs:[],src:"",at:"",err:""},tab:"reason"};
+const S={kind:ST_FAIL,F:{months:new Set(),from:"",to:""},fm:{st:"loading",recs:[],fail:[],daily:false,hasFail:false,hasProg:false,at:"",err:"",others:new Set()},mm:{st:"loading",recs:[],src:"",at:"",err:""},tab:"reason"};
 
 /* ---------- الفيرست مايل ---------- */
 function normFM(d){
-  const {months=[],cities=[],statuses=[],reasons=[],clients=[],rows=[],pickupSummary,failDetail}=d;
+  const {months=[],cities=[],statuses=[],reasons=[],clients=[],rows=[],pickupSummary,statusDetail,failDetail}=d;
   const daily=Array.isArray(pickupSummary)&&pickupSummary.length;
   const recs=daily?pickupSummary.map(([dt,ci,ti,si,ri,n,raw])=>({d:dt,m:String(dt).slice(0,7),st:normSt(statuses[si]),raw:statuses[si],n,sh:raw||0}))
                   :rows.map(r=>({d:null,m:months[r[0]],st:normSt(statuses[r[5]]),raw:statuses[r[5]],n:r[8],sh:r[10]||0}));
-  const fail=Array.isArray(failDetail)?failDetail.map(([dt,cli,ri,ci,n,sh])=>({d:dt,m:dt.slice(0,7),client:clients[cli],reason:reasons[ri],n,sh})):[];
+  let fail=[],hasDet=false,hasProgDet=false;
+  if(Array.isArray(statusDetail)){hasDet=hasProgDet=true;fail=statusDetail.map(([dt,cli,ri,ci,n,sh,si])=>({d:dt,m:dt.slice(0,7),client:clients[cli],reason:reasons[ri],st:normSt(statuses[si]),n,sh}))}
+  else if(Array.isArray(failDetail)){hasDet=true;fail=failDetail.map(([dt,cli,ri,ci,n,sh])=>({d:dt,m:dt.slice(0,7),client:clients[cli],reason:reasons[ri],st:ST_FAIL,n,sh}))}
   const others=new Set(recs.filter(r=>![ST_DONE,ST_PROG,ST_FAIL].includes(r.st)).map(r=>r.raw));
-  return {recs,daily:!!daily,fail,hasFail:Array.isArray(failDetail),others};
+  return {recs,daily:!!daily,fail,hasFail:hasDet,hasProg:hasProgDet,others};
 }
 async function loadFM(){
   if(!CFG.APPS_SCRIPT_URL)throw new Error("لم يتم ضبط APPS_SCRIPT_URL في config.js");
@@ -154,7 +156,7 @@ const snapRecs=s=>s.rows.map(([d,bi,sh,bg,o])=>({d,m:d.slice(0,7),b:s.branches[b
 const okM=m=>!S.F.months.size||S.F.months.has(m);
 const okD=d=>(!S.F.from||d>=S.F.from)&&(!S.F.to||d<=S.F.to);
 const fmRecs=()=>S.fm.recs.filter(r=>okM(r.m)&&(!S.fm.daily||okD(r.d)));
-const failRecs=()=>S.fm.fail.filter(r=>okM(r.m)&&okD(r.d));
+const failRecs=()=>S.fm.fail.filter(r=>r.st===S.kind&&okM(r.m)&&okD(r.d));
 const mmRecs=()=>S.mm.recs.filter(r=>okM(r.m)&&okD(r.d));
 function buildFilters(){
   const ms=[...new Set([...S.fm.recs.map(r=>r.m),...S.mm.recs.map(r=>r.m)].filter(Boolean))].sort();
@@ -178,16 +180,18 @@ function renderFM(){
   rs.forEach(r=>{a.n+=r.n;if(r.st===ST_DONE){a.d+=r.n;a.dS+=r.sh}else if(r.st===ST_PROG){a.p+=r.n;a.pS+=r.sh}else if(r.st===ST_FAIL){a.f+=r.n;a.fS+=r.sh}});
   const notes=[];
   if(!f.daily)notes.push("الـ Code.gs المنشور لا يرسل pickupSummary: فلتر التاريخ لا يسري على البيك أب (الشهر فقط) وشحنات المُرحَّل تظهر صفرًا. انشر Code.gs المحدّث.");
-  else if(!f.hasFail)notes.push("الـ Code.gs المنشور لا يرسل failDetail: تفاصيل الفشل (العملاء والأيام) غير متاحة. انشر Code.gs المحدّث.");
+  else if(!f.hasProg)notes.push("الـ Code.gs المنشور لا يرسل statusDetail: تفاصيل المُرحَّل غير متاحة"+(f.hasFail?" (تفاصيل الفشل تعمل)":" وكذلك الفشل")+". انشر Code.gs المحدّث.");
   if(f.others.size)notes.push("حالات أخرى غير Done / In progress / Fail موجودة في الشيت وغير محسوبة في الكروت: "+[...f.others].map(esc).join("، "));
   const nb=$("note");nb.innerHTML=notes.join("<br>");nb.classList.toggle("hidden",!notes.length);
+  const tot=a.dS+a.pS+a.fS;
   box.innerHTML=`<div class="grid">`+
    card({t:"إجمالي طلبات البيك أب",u:"طلب",v:fmt(a.n),tone:"--blue",def:"كل الطلبات في الفترة (كل الحالات)"})+
-   card({t:"تم الالتقاط من اليوم الأول",u:"طلب",v:fmt(a.d),p:pf(a.d,a.n),tone:"--ok",def:"الحالة = Done"})+
-   card({t:"الشحنات المرسلة التي تم التقاطها",u:"شحنة",v:fmt(a.dS),tone:"--ok",def:"عدد الشحنات في طلبات Done"})+
-   card({t:"مُرحَّل (In progress)",u:"طلب",v:fmt(a.p),p:pf(a.p,a.n),s:`${f.daily?fmt(a.pS):"–"} شحنة مُرحَّلة`,tone:"--warn",def:"الحالة = In progress"})+
+   card({t:"عدد الشحنات",u:"شحنة",v:fmt(f.daily?tot:a.dS),tone:"--blue",def:f.daily?"مجموع الشحنات في كل الطلبات (عمود Pickup)":"شحنات طلبات Done فقط حاليًا — انشر Code.gs المحدّث"})+
+   card({t:"تم الالتقاط من اليوم الأول",u:"نسبة من إجمالي الطلبات",v:pf(a.d,a.n),s:`${fmt(a.dS)} شحنة · ${fmt(a.d)} طلب`,tone:"--ok",def:"الحالة = Done — الشحنات مربوطة بهذه الطلبات"})+
+   card({t:"مُرحَّل (In progress)",u:"طلب",v:fmt(a.p),p:pf(a.p,a.n),s:`${f.daily?fmt(a.pS):"–"} شحنة مُرحَّلة · اضغط للأسباب`,tone:"--warn",click:"progCard",def:"الحالة = In progress"})+
    card({t:"فشل",u:"طلب",v:fmt(a.f),p:pf(a.f,a.n),s:"اضغط لعرض الأسباب والعملاء والأيام",tone:"--bad",click:"failCard",def:"الحالة = Fail"})+`</div>`;
-  $("failCard").onclick=openFail;
+  $("progCard").onclick=()=>openDetail(ST_PROG);
+  $("failCard").onclick=()=>openDetail(ST_FAIL);
   $("fmSub").textContent="الوحدة: طلب بيك أب — الشحنات من عمود «Pickup»"+(f.daily?"":" — تفصيل شهري فقط");
 }
 function renderMM(){
@@ -212,17 +216,19 @@ function render(){renderSrc();renderFM();renderMM();if(!$("ov").classList.contai
 function grp(rs,key){const g=new Map();rs.forEach(r=>{const k=r[key]||"غير مسجَّل";let x=g.get(k);if(!x)g.set(k,x={k,n:0,sh:0});x.n+=r.n;x.sh+=r.sh});return [...g.values()]}
 function renderFail(){
   const body=$("mdBody"),t=S.tab;$("srch").classList.toggle("hidden",t!=="client");
-  if(!S.fm.hasFail){body.innerHTML='<div class="state">تفاصيل الفشل تتطلب نشر Code.gs المحدّث (حقل failDetail).</div>';return}
+  if(!S.fm.hasFail||(S.kind===ST_PROG&&!S.fm.hasProg)){body.innerHTML='<div class="state">هذه التفاصيل تتطلب نشر Code.gs المحدّث (حقل statusDetail).</div>';return}
   const rs=failRecs(),tot=rs.reduce((s,r)=>s+r.n,0),totS=rs.reduce((s,r)=>s+r.sh,0);
   let rows,first;
   if(t==="reason"){rows=grp(rs,"reason").sort((a,b)=>b.n-a.n);first="سبب الفشل"}
   else if(t==="client"){const q=nk($("srch").value);rows=grp(rs,"client").filter(r=>!q||nk(r.k).includes(q)).sort((a,b)=>b.n-a.n);first="العميل"}
   else{rows=grp(rs,"d").sort((a,b)=>a.k<b.k?1:-1);first="اليوم"}
-  body.innerHTML=`<div class="tw"><table><thead><tr><th>${first}</th><th class="n">الطلبات الفاشلة</th><th class="n">% من الفشل</th><th class="n">الشحنات</th></tr></thead>
+  body.innerHTML=`<div class="tw"><table><thead><tr><th>${first}</th><th class="n">${S.kind===ST_PROG?"الطلبات المُرحَّلة":"الطلبات الفاشلة"}</th><th class="n">% من الإجمالي</th><th class="n">الشحنات</th></tr></thead>
   <tbody>${rows.map(r=>`<tr><td>${esc(r.k==="N/A"?"بدون سبب مسجَّل":r.k)}</td><td class="n">${fmt(r.n)}</td><td class="n">${pf(r.n,tot)}</td><td class="n">${fmt(r.sh)}</td></tr>`).join("")||'<tr><td colspan="4">لا بيانات</td></tr>'}</tbody>
   <tfoot><tr><td>الإجمالي (${fmt(rows.length)})</td><td class="n">${fmt(tot)}</td><td class="n">100%</td><td class="n">${fmt(totS)}</td></tr></tfoot></table></div>`;
 }
-function openFail(){$("ov").classList.remove("hidden");renderFail()}
+function openDetail(k){S.kind=k;S.tab="reason";document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x.dataset.t==="reason"));
+  $("mdTitle").textContent=k===ST_PROG?"تفاصيل الطلبات المُرحَّلة (In progress)":"تفاصيل الطلبات الفاشلة";
+  $("ov").style.setProperty("--k",k===ST_PROG?"var(--warn)":"var(--bad)");$("ov").classList.remove("hidden");renderFail()}
 $("close").onclick=()=>$("ov").classList.add("hidden");
 $("ov").onclick=e=>{if(e.target.id==="ov")$("ov").classList.add("hidden")};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")$("ov").classList.add("hidden")});
@@ -235,7 +241,7 @@ async function refresh(){
   const btn=$("refresh");btn.disabled=true;btn.textContent="جارٍ التحديث…";
   const [fm,mm]=await Promise.allSettled([loadFM(),loadMM()]);
   if(fm.status==="fulfilled")S.fm={st:"ok",...normFM(fm.value),at:now(),err:""};
-  else if(S.fm.st!=="ok")S.fm={st:"error",recs:[],fail:[],daily:false,hasFail:false,at:"",err:String(fm.reason&&fm.reason.message||fm.reason),others:new Set()};
+  else if(S.fm.st!=="ok")S.fm={st:"error",recs:[],fail:[],daily:false,hasFail:false,hasProg:false,at:"",err:String(fm.reason&&fm.reason.message||fm.reason),others:new Set()};
   if(mm.status==="fulfilled")S.mm={st:"ok",recs:mm.value,src:"live",at:now(),err:""};
   else if(S.mm.src!=="live"){S.mm=MM_SNAPSHOT?{st:"ok",recs:snapRecs(MM_SNAPSHOT),src:"snap",at:"",err:""}:{st:"error",recs:[],src:"",at:"",err:String(mm.reason&&mm.reason.message||mm.reason)}}
   buildFilters();render();btn.disabled=false;btn.textContent="تحديث البيانات";
