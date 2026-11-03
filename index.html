@@ -186,7 +186,6 @@ function renderFM(){
   const tot=a.dS+a.pS+a.fS;
   box.innerHTML=`<div class="grid">`+
    card({t:"إجمالي طلبات البيك أب",u:"طلب",v:fmt(a.n),s:`${fmt(f.daily?tot:a.dS)} شحنة${f.daily?"":" (Done فقط)"}`,tone:"--blue",def:"كل الطلبات في الفترة (كل الحالات) ومعها عدد الشحنات"})+
-   card({t:"عدد الشحنات",u:"شحنة",v:fmt(f.daily?tot:a.dS),tone:"--blue",def:f.daily?"مجموع الشحنات في كل الطلبات (عمود Pickup)":"شحنات طلبات Done فقط حاليًا — انشر Code.gs المحدّث"})+
    card({t:"طلبات الناجحه",u:"نسبة من إجمالي الطلبات",v:pf(a.d,a.n),s:`${fmt(a.dS)} شحنة · ${fmt(a.d)} طلب`,tone:"--ok",def:"الحالة = Done — الشحنات مربوطة بهذه الطلبات"})+
    card({t:"In progress",u:"طلب",v:fmt(a.p),p:pf(a.p,a.n),s:`${f.daily?fmt(a.pS):"–"} شحنة مُرحَّلة · اضغط للأسباب`,tone:"--warn",click:"progCard",def:"الحالة = In progress"})+
    card({t:"طلبات تم إرسالها في نفس اليوم",u:"طلب",v:"—",tone:"--info",def:"المصدر: <b style='color:var(--warn)'>لم يُحدَّد بعد</b>"})+
