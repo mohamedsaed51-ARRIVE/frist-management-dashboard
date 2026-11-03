@@ -200,7 +200,7 @@ function renderMM(){
   const rs=mmRecs();let tot=0,out=0;rs.forEach(r=>{tot+=r.sh;if(r.out)out+=r.sh});const pr=tot-out;
   box.innerHTML=`<div class="grid">`+
    card({t:"إجمالي الأوردرات",u:"أوردر",v:fmt(tot),tone:"--blue",def:"كل الأوردرات التي خرجت من الميديل مايل"})+
-   card({t:"أوردرات خرجت",u:"أوردر",v:fmt(out),p:pf(out,tot),tone:"--ok",def:"خرجت في نفس اليوم — الحالة «في الطريق للفرع»"})+
+   card({t:"أوردرات تم توزيعها",u:"أوردر",v:fmt(out),p:pf(out,tot),tone:"--ok",def:"خرجت في نفس اليوم — الحالة «في الطريق للفرع»"})+
    card({t:"أوردرات مرحَّلة",u:"أوردر",v:fmt(pr),p:pf(pr,tot),tone:"--warn",def:"الحالة غير «في الطريق للفرع»"})+`</div>`;
 }
 function renderSrc(){
