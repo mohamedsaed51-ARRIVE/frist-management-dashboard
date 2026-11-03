@@ -187,7 +187,7 @@ function renderFM(){
   box.innerHTML=`<div class="grid">`+
    card({t:"إجمالي طلبات البيك أب",u:"طلب",v:fmt(a.n),tone:"--blue",def:"كل الطلبات في الفترة (كل الحالات)"})+
    card({t:"عدد الشحنات",u:"شحنة",v:fmt(f.daily?tot:a.dS),tone:"--blue",def:f.daily?"مجموع الشحنات في كل الطلبات (عمود Pickup)":"شحنات طلبات Done فقط حاليًا — انشر Code.gs المحدّث"})+
-   card({t:"طلبات الناجح",u:"نسبة من إجمالي الطلبات",v:pf(a.d,a.n),s:`${fmt(a.dS)} شحنة · ${fmt(a.d)} طلب`,tone:"--ok",def:"الحالة = Done — الشحنات مربوطة بهذه الطلبات"})+
+   card({t:"طلبات الناجحه",u:"نسبة من إجمالي الطلبات",v:pf(a.d,a.n),s:`${fmt(a.dS)} شحنة · ${fmt(a.d)} طلب`,tone:"--ok",def:"الحالة = Done — الشحنات مربوطة بهذه الطلبات"})+
    card({t:"In progress",u:"طلب",v:fmt(a.p),p:pf(a.p,a.n),s:`${f.daily?fmt(a.pS):"–"} شحنة مُرحَّلة · اضغط للأسباب`,tone:"--warn",click:"progCard",def:"الحالة = In progress"})+
    card({t:"فشل",u:"طلب",v:fmt(a.f),p:pf(a.f,a.n),s:"اضغط لعرض الأسباب والعملاء والأيام",tone:"--bad",click:"failCard",def:"الحالة = Fail"})+`</div>`;
   $("progCard").onclick=()=>openDetail(ST_PROG);
