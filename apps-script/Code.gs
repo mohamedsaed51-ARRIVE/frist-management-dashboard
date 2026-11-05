@@ -181,7 +181,7 @@ function doGet(e) {
 
     const bypassCache = params.refresh === '1';
     const cache = CacheService.getScriptCache();
-    const cacheKey = 'first_mile_dashboard_payload_v7';
+    const cacheKey = 'first_mile_dashboard_payload_v8';
 
     if (!bypassCache) {
       const cached = safeCacheGet(cache, cacheKey);
@@ -274,13 +274,23 @@ function isRowBlank(row) {
  * Resolves CONFIG.COLUMN_ALIASES against one header row.
  * Returns { col: {canonicalKey: columnIndex, ...}, matchedCount, headerTexts }
  */
+// توحيد العناوين العربية: يشيل التشكيل والتطويل ويوحّد (أ/إ/آ→ا) و(ة→ه) و(ى→ي)
+// فيتطابق «الحالة الثانية» مع «الحاله الثانيه» وأي اختلاف إملائي بسيط.
+function normalizeHeader(s) {
+  return normalizeText(s)
+    .replace(/[\u064B-\u0652\u0640]/g, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي');
+}
+
 function resolveColumns(headerRow, aliasMap) {
-  const normalizedHeaderRow = headerRow.map(normalizeText);
+  const normalizedHeaderRow = headerRow.map(normalizeHeader);
   const col = {};
   let matchedCount = 0;
 
   Object.keys(aliasMap).forEach(canonicalKey => {
-    const variants = aliasMap[canonicalKey].map(normalizeText);
+    const variants = aliasMap[canonicalKey].map(normalizeHeader);
     let foundIdx = -1;
     for (let i = 0; i < normalizedHeaderRow.length; i++) {
       if (variants.indexOf(normalizedHeaderRow[i]) !== -1) { foundIdx = i; break; }
