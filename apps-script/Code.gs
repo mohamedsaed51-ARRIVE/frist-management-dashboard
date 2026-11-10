@@ -151,9 +151,9 @@ const CONFIG = {
     shipments: ['Pickup', 'Shipments', 'Shipment', 'No of Shipments', 'Number of Shipments', 'عدد الشحنات'],
     reason:    ['Reason', 'Failure Reason'],
     recorded:  ['Recorded on system', 'Recorded On System', 'Recorded'],
-    // عمود I: "الحالة الثانية" (Sent Same Day / In Progress) — اختياري
+    // عمود I: "الحالة الثانية" (نفس اليوم / معلق) — اختياري
     secondStatus: ['الحالة الثانية', 'الحاله الثانيه', 'الحالة الثانيه', 'Second Status'],
-    // عمود J: "الحالة النهائية" (تُعرض داخل كارت In Progress) — اختياري
+    // عمود J: "الحالة النهائية" (تُعرض في كارت «الحالة النهائية للمعلق») — اختياري
     finalStatus:  ['الحالة النهائية', 'الحاله النهائيه', 'الحالة النهائيه', 'Final Status']
   },
 
