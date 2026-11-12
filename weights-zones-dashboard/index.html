@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARRIVE | لوحة متابعة تعديل الأوزان والزونات</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<!-- نفس نظام تصميم لوحة الشكاوى (ARRIVE Design System V2.0) -->
+<link rel="stylesheet" href="arrive-ui.css">
+<style>
+/* ---- إضافات هذه اللوحة فقط (تعتمد على متغيرات نظام التصميم) ---- */
+.brand-logo{height:34px;width:auto}
+.wz-tabs{position:sticky;top:0;z-index:30;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:var(--shadow-xs)}
+.wz-tabs-inner{max-width:var(--page-max);margin:0 auto;padding:0 var(--page-pad);display:flex;gap:4px;overflow-x:auto}
+.wz-tab{appearance:none;background:none;border:0;border-bottom:3px solid transparent;padding:14px 16px 11px;font-family:var(--font-ui);font-size:var(--fs-body);font-weight:var(--fw-semibold);color:var(--ink-faint);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:8px}
+.wz-tab:hover{color:var(--navy)}
+.wz-tab.active{color:var(--navy);border-bottom-color:var(--navy)}
+.wz-tab .cnt{font-family:var(--font-numeric);font-size:var(--fs-micro);background:var(--neutral-bg);color:var(--neutral-fg);border-radius:var(--radius-pill);padding:1px 8px}
+.wz-tab .cnt.warn{background:var(--rejected-bg);color:var(--rejected-fg)}
+.wz-pane{display:none}.wz-pane.active{display:block}
+.wz-note{background:var(--surface-subtle);border:1px solid var(--line);border-inline-start:4px solid var(--navy);border-radius:var(--radius-md);padding:12px 16px;font-size:var(--fs-small);color:var(--ink-soft);line-height:1.8;margin-bottom:var(--space-5)}
+:root[data-theme="dark"] .wz-note{background:var(--surface-alt)}
+.wz-note b{color:var(--navy-deep)}
+.wz-note.warn{border-inline-start-color:var(--status-under-action)}
+.wz-banner{background:var(--pending-bg);color:var(--pending-fg);font-size:var(--fs-small);font-weight:var(--fw-semibold);padding:9px var(--page-pad);display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}
+.wz-banner button{font-family:var(--font-ui);font-size:var(--fs-caption);font-weight:700;border:1px solid currentColor;background:transparent;color:inherit;border-radius:var(--radius-sm);padding:3px 12px;cursor:pointer}
+.kpi-row.six{grid-template-columns:repeat(3,1fr)}
+@media (max-width:900px){.kpi-row.six{grid-template-columns:1fr}}
+.stub.tone-brand .stub-ic{color:var(--navy)}
+.table-panel{margin-bottom:var(--space-6)}
+.table-head-bar .tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+table.wz th{cursor:pointer;user-select:none;white-space:nowrap}
+table.wz th.nosort{cursor:default}
+table.wz td.num,table.wz th.num{font-family:var(--font-numeric);font-variant-numeric:tabular-nums;direction:ltr;text-align:right;white-space:nowrap}
+table.wz td.mono{font-family:var(--font-mono);font-size:var(--fs-caption);direction:ltr;text-align:right}
+table.wz td.wrap{white-space:normal;max-width:360px;line-height:1.6}
+table.wz tr.total td{font-weight:var(--fw-bold);background:var(--surface-alt)}
+.wz-empty{padding:28px;text-align:center;color:var(--ink-faint);font-size:var(--fs-small)}
+.wz-bar{display:inline-block;height:8px;border-radius:4px;background:var(--navy);vertical-align:middle;margin-inline-end:8px;min-width:2px}
+/* شبكة الالتزام */
+.heat-wrap{overflow:auto;padding:14px 20px 18px}
+table.heat{border-collapse:separate;border-spacing:3px;width:auto;font-size:var(--fs-caption)}
+table.heat th{background:none;color:var(--ink-faint);font-weight:600;padding:2px 4px;text-align:center;font-family:var(--font-numeric);border:0;position:static}
+table.heat th.br{text-align:right;font-family:var(--font-ui);color:var(--ink);white-space:nowrap;padding-inline-end:12px}
+table.heat td{width:26px;height:26px;border-radius:5px;text-align:center;padding:0;font-size:11px;font-weight:700;border:0}
+.h-sent{background:var(--status-success-bg);color:var(--status-success-fg)}
+.h-notSent{background:var(--status-violation);color:#fff}
+.h-na{background:var(--neutral-bg);color:var(--neutral-fg)}
+.h-unrecorded{background:var(--status-under-action-bg);color:var(--status-under-action-fg)}
+.h-pending,.h-future,.h-preStart,.h-none{background:transparent;border:1px dashed var(--line)!important;color:var(--text-muted)}
+.heat-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:var(--fs-caption);color:var(--ink-soft);padding:0 20px 16px}
+.heat-legend span{display:inline-flex;align-items:center;gap:6px}
+.heat-legend i{display:inline-block;width:14px;height:14px;border-radius:4px}
+/* جودة البيانات */
+.q-card{background:var(--surface);border:1px solid var(--line);border-inline-start:4px solid var(--neutral);border-radius:var(--radius-md);box-shadow:var(--shadow);margin-bottom:12px}
+.q-card.critical{border-inline-start-color:var(--status-violation)}.q-card.high{border-inline-start-color:var(--status-under-action)}
+.q-card.medium{border-inline-start-color:var(--status-in-progress)}.q-card.low{border-inline-start-color:var(--status-closed)}
+.q-card summary{cursor:pointer;list-style:none;padding:14px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.q-card summary::-webkit-details-marker{display:none}
+.q-card .q-title{font-weight:var(--fw-bold);color:var(--navy-deep);flex:1;min-width:220px}
+.q-card .q-count{font-family:var(--font-numeric);font-weight:800;font-size:18px;color:var(--navy-deep)}
+.q-card .q-body{padding:0 18px 16px;font-size:var(--fs-small);color:var(--ink-soft);line-height:1.8}
+.q-card .q-body b{color:var(--ink)}
+.q-card .table-scroll{max-height:320px;margin-top:10px;border:1px solid var(--line);border-radius:var(--radius-sm)}
+.policy{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:26px 30px;line-height:2;font-size:var(--fs-body);color:var(--ink)}
+.policy h4{margin:16px 0 4px;color:var(--navy);font-size:var(--fs-subtitle)}
+.policy li{margin-inline-start:22px}
+.policy hr{border:0;border-top:1px dashed var(--line-strong);margin:22px 0}
+.wz-foot{max-width:var(--page-max);margin:0 auto;padding:0 var(--page-pad) 40px;font-size:var(--fs-caption);color:var(--ink-faint);line-height:1.9}
+.alert-card{cursor:pointer}
+.insight-card-v2-head b{font-size:var(--fs-small);color:var(--navy-deep)}
+@media print{.wz-tabs,.filter-bar,.control-bar,.header-actions,.wz-banner,.pager{display:none!important}.wz-pane{display:block!important;break-before:page}}
+</style>
+</head>
+<body>
+
+<div id="snapBanner" class="wz-banner hidden" role="status">
+  <span><i class="fa-solid fa-triangle-exclamation"></i> <span id="snapBannerMsg"></span></span>
+  <button id="snapBannerBtn" type="button">إعدادات الاتصال</button>
+</div>
+
+<header class="top">
+  <div class="top-inner top-first">
+    <div class="top-brand">
+      <img class="brand-logo" src="logo.png" alt="ARRIVE">
+      <span class="brand-divider" aria-hidden="true"></span>
+      <div class="brand-sys"><b>المراجعة التشغيلية</b><span>متابعة تعديل الأوزان والزونات والتحويلات</span></div>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="btnExport" type="button" title="تصدير سجل التبويب الحالي"><i class="fa-solid fa-download"></i> تصدير</button>
+      <button class="icon-btn" id="btnPrint" type="button"><i class="fa-solid fa-print"></i> طباعة</button>
+      <button class="icon-btn" id="btnSettings" type="button"><i class="fa-solid fa-gear"></i> إعدادات</button>
+      <button class="icon-btn" id="btnTheme" type="button"><i class="fa-solid fa-moon" id="themeIcon"></i> <span id="themeLabel">الوضع الداكن</span></button>
+    </div>
+  </div>
+  <div class="top-inner top-second">
+    <div>
+      <h1 class="title">لوحة متابعة تعديل الأوزان والزونات</h1>
+      <div class="subtitle" id="rangeLabel">تعديلات الأوزان، تحويلات الأفرع، زونات المناديب، والتزام الفروع</div>
+      <div class="header-meta-row">
+        <span class="last-updated-chip"><span class="lu-dot"></span><span>آخر تحديث للبيانات</span><span class="lu-time" id="hdrUpdated">—</span></span>
+        <span class="conn-status-chip" id="connChip" data-state="live"><span class="conn-dot"></span><span id="connLabel">—</span></span>
+      </div>
+    </div>
+    <div class="top-meta">
+      <div class="meta-item"><div class="v num" id="metaWeights">0</div><div class="l">تعديل وزن</div></div>
+      <div class="meta-item"><div class="v num" id="metaBranches">0</div><div class="l">فرعًا مشمولًا</div></div>
+      <div class="meta-item"><div class="v num" id="metaValue">0</div><div class="l">قيمة الوزن الزائد (ج.م)</div></div>
+    </div>
+  </div>
+</header>
+
+<nav class="wz-tabs"><div class="wz-tabs-inner" id="tabs">
+  <button class="wz-tab active" data-tab="overview"><i class="fa-solid fa-gauge-high"></i> نظرة عامة</button>
+  <button class="wz-tab" data-tab="weights"><i class="fa-solid fa-weight-scale"></i> تعديل الأوزان <span class="cnt" id="cntWeights">0</span></button>
+  <button class="wz-tab" data-tab="transfers"><i class="fa-solid fa-right-left"></i> تحويلات الأفرع <span class="cnt" id="cntTransfers">0</span></button>
+  <button class="wz-tab" data-tab="zones"><i class="fa-solid fa-map-location-dot"></i> زونات المناديب <span class="cnt" id="cntZones">0</span></button>
+  <button class="wz-tab" data-tab="compliance"><i class="fa-solid fa-clipboard-check"></i> التزام الفروع</button>
+  <button class="wz-tab" data-tab="quality"><i class="fa-solid fa-shield-halved"></i> جودة البيانات <span class="cnt warn" id="cntQuality">0</span></button>
+  <button class="wz-tab" data-tab="policy"><i class="fa-solid fa-file-lines"></i> آلية العمل</button>
+</div></nav>
+
+<div class="filter-bar" id="filterBar">
+<div class="filter-wrap">
+  <div class="filter-head">
+    <div class="filter-title"><i class="fa-solid fa-sliders"></i> عوامل التصفية</div>
+    <div class="filter-head-actions">
+      <span class="result-count"><b id="resultCount">0</b> سجل</span>
+      <button class="qa-btn" id="btnRefresh" type="button"><i class="fa-solid fa-rotate"></i> تحديث</button>
+      <button class="btn-reset" id="btnReset" type="button"><i class="fa-solid fa-rotate-left"></i> مسح الفلاتر</button>
+    </div>
+  </div>
+  <div class="filter-grid">
+    <div class="fgroup filter-search"><label for="fSearch">بحث (كود شحنة، مندوب، زون)</label><input type="text" id="fSearch" placeholder="اكتب للبحث…"><i class="fa-solid fa-magnifying-glass"></i></div>
+    <div class="fgroup"><label for="fMonth">الشهر</label><select id="fMonth" multiple></select></div>
+    <div class="fgroup"><label for="fBranch">الفرع</label><select id="fBranch" multiple></select></div>
+    <div class="fgroup"><label for="fPerson">المراجع / مسؤول التعديل</label><select id="fPerson" multiple></select></div>
+    <div class="fgroup"><label for="fReason">سبب تعديل الوزن</label><select id="fReason" multiple></select></div>
+    <div class="fgroup"><label for="fFrom">من تاريخ</label><input type="date" id="fFrom"></div>
+    <div class="fgroup"><label for="fTo">إلى تاريخ</label><input type="date" id="fTo"></div>
+  </div>
+</div>
+</div>
+
+<main>
+  <!-- ============ نظرة عامة ============ -->
+  <div class="wz-pane active" id="pane-overview">
+    <div class="section-heading"><h2><span class="tag">مؤشرات</span> المؤشرات الرئيسية</h2><span class="section-sub" id="ovSub">محسوبة ضمن عوامل التصفية الحالية</span></div>
+    <section class="kpi-row six" id="ovKpis"></section>
+
+    <div class="section-heading"><h2><span class="tag">استثناءات</span> مركز التنبيهات</h2><span class="section-sub">تنبيهات مرتبة حسب الخطورة — اضغط على التنبيه للانتقال إلى التفاصيل</span></div>
+    <section class="alert-grid" id="ovAlerts"></section>
+
+    <div class="section-heading"><h2><span class="tag">اتجاهات</span> الاتجاهات والتوزيعات</h2><span class="section-sub">اضغط على عمود الفرع لتصفية اللوحة بأكملها</span></div>
+    <section class="panel-grid halves">
+      <div class="panel"><h3>تعديلات الأوزان اليومية</h3><div class="panel-sub">عدد التعديلات وقيمة الوزن الزائد (ج.م) لكل يوم</div><div class="chart-wrap tall"><canvas id="chOvDaily"></canvas></div></div>
+      <div class="panel"><h3>تعديلات الأوزان حسب الفرع</h3><div class="panel-sub">أعلى 10 فروع من حيث عدد التعديلات</div><div class="chart-wrap tall"><canvas id="chOvBranch"></canvas></div></div>
+    </section>
+
+    <div class="section-heading"><h2><span class="tag">رؤى</span> رؤى للإدارة</h2><span class="section-sub">مبنية بقواعد برمجية من البيانات الحالية — الإجراءات <b>مقترحة</b> وليست قرارات معتمدة</span></div>
+    <section class="insights-panel" id="ovInsights"></section>
+
+    <div class="section-heading"><h2><span class="tag">ترتيب</span> أعلى الفروع</h2><span class="section-sub">ترتيب تلقائي ضمن عوامل التصفية الحالية</span></div>
+    <section class="top-performers-grid" id="ovTop"></section>
+
+    <div class="section-heading" style="margin-top:28px"><h2><span class="tag">أداء</span> أداء المراجعين ومسؤولي التعديل</h2><span class="section-sub">أرقام فعلية فقط — لا توجد درجة مركّبة لعدم وجود أوزان معتمدة للتقييم</span></div>
+    <section class="table-panel"><div id="tblStaff"></div></section>
+  </div>
+
+  <!-- ============ تعديل الأوزان ============ -->
+  <div class="wz-pane" id="pane-weights">
+    <div class="section-heading"><h2><span class="tag">مؤشرات</span> مؤشرات تعديل الأوزان</h2><span class="section-sub">محسوبة ضمن عوامل التصفية الحالية</span></div>
+    <section class="kpi-row six" id="wKpis"></section>
+    <div class="wz-note" id="wNote"></div>
+    <section class="panel-grid single"><div class="panel"><h3>التعديلات حسب الفرع</h3><div class="panel-sub">عدد التعديلات وقيمة الوزن الزائد — اضغط على العمود للتصفية</div><div class="chart-wrap xl"><canvas id="chWBranch"></canvas></div></div></section>
+    <section class="panel-grid halves">
+      <div class="panel"><h3>الاتجاه اليومي</h3><div class="panel-sub">عدد التعديلات وقيمة الوزن الزائد لكل يوم</div><div class="chart-wrap tall"><canvas id="chWDaily"></canvas></div></div>
+      <div class="panel"><h3>توزيع الوزن المعدَّل (كجم)</h3><div class="panel-sub">عدد التعديلات لكل شريحة وزن</div><div class="chart-wrap tall"><canvas id="chWKg"></canvas></div></div>
+    </section>
+    <section class="panel-grid halves">
+      <div class="panel"><h3>سبب التعديل</h3><div class="panel-sub">وزن حجمي مقابل وزن فعلي</div><div class="chart-wrap tall"><canvas id="chWReason"></canvas></div></div>
+      <div class="panel"><h3>التعديلات حسب المراجع</h3><div class="panel-sub">عدد السجلات التي راجعها كل موظف</div><div class="chart-wrap tall"><canvas id="chWPerson"></canvas></div></div>
+    </section>
+    <section class="table-panel"><div class="table-head-bar"><h3>مقارنة الأشهر</h3><div class="panel-sub" style="margin:0" id="wMonthSub"></div></div><div id="tblWMonths"></div></section>
+    <section class="table-panel"><div class="table-head-bar"><h3>الأداء حسب الفرع</h3><div class="panel-sub" style="margin:0">الفرز بالضغط على عنوان العمود</div></div><div id="tblWBranch"></div></section>
+    <section class="table-panel"><div class="table-head-bar"><h3>فروقات الوزن الحجمي عن الأبعاد</h3><div class="panel-sub" style="margin:0" id="wVolSub"></div></div><div id="tblWVol"></div></section>
+    <section class="table-panel"><div class="table-head-bar"><h3>سجل تعديل الأوزان</h3><div class="panel-sub" style="margin:0">كل السجلات ضمن التصفية الحالية</div></div><div id="tblWLog"></div></section>
+  </div>
+
+  <!-- ============ تحويلات الأفرع ============ -->
+  <div class="wz-pane" id="pane-transfers">
+    <div class="section-heading"><h2><span class="tag">مؤشرات</span> مؤشرات تحويلات الأفرع</h2><span class="section-sub">نسبة الأخطاء = عدد الأخطاء ÷ عدد التحويلات للأيام المسجَّلة</span></div>
+    <section class="kpi-row six" id="tKpis"></section>
+    <div class="wz-note" id="tNote"></div>
+    <section class="panel-grid halves">
+      <div class="panel"><h3>التحويلات وأخطاء الفرع</h3><div class="panel-sub">عدد التحويلات ونسبة أخطاء الفرع لكل فرع</div><div class="chart-wrap tall"><canvas id="chTBranch"></canvas></div></div>
+      <div class="panel"><h3>الأخطاء اليومية</h3><div class="panel-sub">أخطاء الفروع وأخطاء مسؤول التحويل لكل يوم</div><div class="chart-wrap tall"><canvas id="chTDaily"></canvas></div></div>
+    </section>
+    <section class="table-panel"><div class="table-head-bar"><h3>التحويلات حسب الفرع</h3></div><div id="tblTBranch"></div></section>
+    <section class="table-panel"><div class="table-head-bar"><h3>التحويلات حسب مسؤول التحويل</h3></div><div id="tblTPerson"></div></section>
+    <section class="table-panel"><div class="table-head-bar"><h3>السجل اليومي للتحويلات</h3></div><div id="tblTLog"></div></section>
+  </div>
+
+  <!-- ============ زونات المناديب ============ -->
+  <div class="wz-pane" id="pane-zones">
+    <div class="section-heading"><h2><span class="tag">مؤشرات</span> مؤشرات تعديل زونات المناديب</h2><span class="section-sub">سجل التعديلات اليومية على زون المندوب</span></div>
+    <section class="kpi-row six" id="zKpis"></section>
+    <div class="wz-note" id="zNote"></div>
+    <section class="panel-grid halves">
+      <div class="panel"><h3>تعديلات الزونات حسب الفرع</h3><div class="panel-sub">عدد التعديلات وعدد أخطاء مسؤول التعديل</div><div class="chart-wrap tall"><canvas id="chZBranch"></canvas></div></div>
+      <div class="panel"><h3>أكثر الزونات تعديلًا</h3><div class="panel-sub">عدد مرات تعديل المناديب إلى كل زون</div><div class="chart-wrap tall"><canvas id="chZZone"></canvas></div></div>
+    </section>
+    <section class="table-panel"><div class="table-head-bar"><h3>حسب مسؤول التعديل</h3></div><div id="tblZPerson"></div></section>
+    <section class="table-panel"><div class="table-head-bar"><h3>سجل تعديل الزونات اليومي</h3></div><div id="tblZLog"></div></section>
+    <section class="table-panel"><div class="table-head-bar"><h3>قائمة الزونات المعتمدة للمناديب</h3><div class="panel-sub" style="margin:0">من تبويب «الزونات» — تتأثر بفلتر الفرع والبحث فقط</div></div><div id="tblZMaster"></div></section>
+  </div>
+
+  <!-- ============ التزام الفروع ============ -->
+  <div class="wz-pane" id="pane-compliance">
+    <div class="section-heading"><h2><span class="tag">مؤشرات</span> التزام الفروع بإرسال شيت التحويلات</h2><span class="section-sub">نسبة الالتزام = تم الإرسال ÷ (تم الإرسال + لم يرسل)</span></div>
+    <section class="kpi-row six" id="cKpis"></section>
+    <div id="cGrids"></div>
+    <section class="table-panel"><div class="table-head-bar"><h3>الالتزام حسب الفرع</h3></div><div id="tblCBranch"></div></section>
+    <section class="table-panel"><div class="table-head-bar"><h3>أيام عدم الإرسال والأيام غير المسجَّلة</h3></div><div id="tblCMiss"></div></section>
+  </div>
+
+  <!-- ============ جودة البيانات ============ -->
+  <div class="wz-pane" id="pane-quality">
+    <div class="section-heading"><h2><span class="tag">فحص</span> جودة بيانات الشيت</h2><span class="section-sub">على كامل البيانات — لا تتأثر بعوامل التصفية</span></div>
+    <section class="kpi-row six" id="qKpis"></section>
+    <div class="wz-note"><b>أساس التصنيف:</b> <b>حرجة</b> = تؤثر على صحة الإجماليات · <b>مرتفعة</b> = تمس قيمة مالية أو تمنع نسب السجل لفترة/مسؤول · <b>متوسطة</b> = قد تشوّه التوزيع حسب الفرع أو اليوم · <b>منخفضة</b> = تنسيق وإملاء. اضغط على أي بند لعرض السجلات.</div>
+    <div id="qList"></div>
+  </div>
+
+  <!-- ============ آلية العمل ============ -->
+  <div class="wz-pane" id="pane-policy">
+    <div class="section-heading"><h2><span class="tag">مرجع</span> آلية العمل المُبلَّغة للأفرع</h2><span class="section-sub">نص تبويب «رساله الافرع» كما هو في الشيت</span></div>
+    <div class="policy" id="policyBody"></div>
+  </div>
+</main>
+
+<div class="wz-foot" id="footNote"></div>
+
+<div class="overlay" id="settingsOverlay">
+  <div class="modal settings-modal">
+    <div class="modal-head">
+      <div><div class="mid">الإعدادات</div><h2>إعدادات مصدر البيانات</h2></div>
+      <button class="modal-close" id="settingsClose" aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="settings-body">
+      <label class="settings-label" for="apiUrlInput">رابط الـ Google Apps Script (Web App)</label>
+      <input type="url" id="apiUrlInput" class="settings-input" placeholder="https://script.google.com/macros/s/XXXXXXXX/exec" dir="ltr">
+      <div class="settings-hint">يُحفظ الرابط محليًا على هذا الجهاز فقط. اتركه فارغًا للرجوع إلى config.js أو إلى اللقطة المحفوظة. خطوات النشر موجودة أعلى ملف apps-script/Code.gs.</div>
+      <div class="settings-row-actions">
+        <button class="icon-btn settings-save-btn" id="settingsSave" type="button">حفظ والاتصال</button>
+        <button class="icon-btn settings-refresh-btn" id="settingsFresh" type="button"><i class="fa-solid fa-rotate"></i> تحديث بدون كاش</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="config.js"></script>
+<script src="data-snapshot.js"></script>
+<script src="wz-logic.js"></script>
+<script src="wz-app.js"></script>
+</body>
+</html>
