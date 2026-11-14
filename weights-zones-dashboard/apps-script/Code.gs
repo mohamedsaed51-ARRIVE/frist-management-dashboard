@@ -47,7 +47,8 @@ function testPayload() {
 
 function buildPayload_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var tz = ss.getSpreadsheetTimeZone();
+  if (!ss) throw new Error('السكربت غير مرتبط بالشيت: افتحه من داخل الشيت (Extensions ← Apps Script) وليس كمشروع مستقل.');
+  var tz = resolveTimeZone_(ss);
   var data = {
     generatedAt: Utilities.formatDate(new Date(), tz, "yyyy-MM-dd'T'HH:mm:ssXXX"),
     source: { title: ss.getName() },
@@ -65,6 +66,19 @@ function buildPayload_() {
 }
 
 /* ---------- أدوات ---------- */
+/** المنطقة الزمنية: من الشيت، ثم من مشروع السكربت، ثم القاهرة — دائمًا نص صالح. */
+function resolveTimeZone_(ss) {
+  var cands = [];
+  try { cands.push(ss.getSpreadsheetTimeZone()); } catch (e) {}
+  try { cands.push(Session.getScriptTimeZone()); } catch (e) {}
+  cands.push('Africa/Cairo');
+  for (var i = 0; i < cands.length; i++) {
+    var z = cands[i];
+    if (typeof z !== 'string' || !z) continue;
+    try { Utilities.formatDate(new Date(), z, 'yyyy-MM-dd'); return z; } catch (e) {}
+  }
+  return 'GMT+2';
+}
 function isDate_(v) { return Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v.getTime()); }
 function iso_(v, tz) { return isDate_(v) ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : ''; }
 function txt_(v, tz) {
