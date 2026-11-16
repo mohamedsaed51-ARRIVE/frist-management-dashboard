@@ -35,6 +35,7 @@ button.card{cursor:pointer}button.card:hover{box-shadow:0 6px 20px rgba(239,68,6
 .card .v{font:800 32px/1.3 'Inter',sans-serif;direction:ltr;text-align:right;margin-top:4px}
 .card .p{font:800 15px 'Inter',sans-serif;direction:ltr;text-align:right;color:var(--c)}
 .card .s{font-size:13px;color:var(--ink2);margin-top:4px;font-weight:600}
+.card .fl{margin:8px 0;font-size:13px;display:grid;gap:5px}.card .fl div{display:flex;justify-content:space-between;gap:8px}.card .fl b{font-family:'Inter',sans-serif;direction:ltr;white-space:nowrap}.card .fl i{font-style:normal;color:var(--mut);font-weight:600;font-size:11.5px}
 .card .def{margin-top:auto;font-size:11.5px;color:var(--mut);border-top:1px dashed var(--line2);padding-top:6px}
 .state{padding:22px;text-align:center;background:var(--card);border:1px dashed var(--line2);border-radius:var(--r);color:var(--mut)}.state.err{border-color:var(--bad);color:var(--bad);background:var(--badbg)}
 .ov{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:flex-start;justify-content:center;padding:32px 12px;overflow:auto;z-index:50}
@@ -89,6 +90,7 @@ const MM_SNAPSHOT={"branches":["فرع اكتوبر","فرع الاسكندري�
 const ST_DONE="done",ST_PROG="inprogress",ST_FAIL="fail";
 /* عمود Shipment Status في Pickup Request — المعلق بنفس تعريف داش بورد الفيرست مايل (مطابقة تامة: معلق / Pending) */
 const SAME_DAY_RE=/same\s*-?\s*day|نفس\s*اليوم/i, PENDING_VALUES=["معلق","pending"];
+const NO_FIN="بدون حالة نهائية";
 const MM_OUT_STATUS="في الطريق للفرع";
 const $=id=>document.getElementById(id),esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmt=n=>n==null||isNaN(n)?"–":Math.round(n).toLocaleString("en-US"),pf=(a,b)=>b?(a/b*100).toFixed(1)+"%":"–";
@@ -178,18 +180,18 @@ $("reset").onclick=()=>{S.F={months:new Set(),from:"",to:""};$("df").value=$("dt
 /* ---------- الكروت ---------- */
 const card=(o)=>{const tag=o.click?"button":"div";
   return `<${tag} class="card" style="--c:var(${o.tone})" ${o.click?`id="${o.click}" title="اضغط لعرض التفاصيل"`:""}>
-  <div class="t">${o.t}</div><div class="u">${o.u}</div><div class="v">${o.v}</div>${o.p?`<div class="p">${o.p}</div>`:""}
-  ${o.s?`<div class="s">${o.s}</div>`:""}<div class="def">${o.def}</div></${tag}>`};
+  <div class="t">${o.t}</div><div class="u">${o.u}</div>${o.v==null?"":`<div class="v">${o.v}</div>`}${o.p?`<div class="p">${o.p}</div>`:""}
+  ${o.s?`<div class="s">${o.s}</div>`:""}${o.body||""}<div class="def">${o.def}</div></${tag}>`};
 function renderFM(){
   const f=S.fm,box=$("fm");
   if(f.st==="loading")return;
   if(f.st==="error"){box.innerHTML=`<div class="state err"><b>تعذّر تحميل بيانات البيك أب</b><br><span dir="ltr">${esc(f.err)}</span><br>راجع APPS_SCRIPT_URL في config.js ثم اضغط «تحديث البيانات».</div>`;return}
-  const rs=fmRecs(),a={n:0,d:0,dS:0,p:0,pS:0,f:0,fS:0,sd:0,sdS:0,all:0};
-  rs.forEach(r=>{a.n+=r.n;a.all+=r.sh;if(r.st===ST_DONE){a.d+=r.n;a.dS+=r.sh}else if(r.st===ST_FAIL){a.f+=r.n;a.fS+=r.sh}if(r.ip){a.p+=r.n;a.pS+=r.sh}if(r.sd){a.sd+=r.n;a.sdS+=r.sh}});
+  const rs=fmRecs(),a={n:0,d:0,dS:0,p:0,pS:0,f:0,fS:0,sd:0,sdS:0,all:0},fin=new Map();
+  rs.forEach(r=>{a.n+=r.n;a.all+=r.sh;if(r.st===ST_DONE){a.d+=r.n;a.dS+=r.sh}else if(r.st===ST_FAIL){a.f+=r.n;a.fS+=r.sh}if(r.ip){a.p+=r.n;a.pS+=r.sh;const k=r.fin||NO_FIN;fin.set(k,(fin.get(k)||0)+r.n)}if(r.sd){a.sd+=r.n;a.sdS+=r.sh}});
   const notes=[];
   if(!f.daily)notes.push("الـ Code.gs المنشور لا يرسل pickupSummary: فلتر التاريخ لا يسري على البيك أب (الشهر فقط) وشحنات المعلق تظهر صفرًا. انشر Code.gs المحدّث.");
   else if(!f.hasProg)notes.push("الـ Code.gs المنشور لا يرسل statusDetail: تفاصيل المعلق غير متاحة"+(f.hasFail?" (تفاصيل الفشل تعمل)":" وكذلك الفشل")+". انشر Code.gs المحدّث.");
-  if(!f.hasSecond)notes.push("عمود Shipment Status غير موجود أو فاضٍ في الرد: كارتا «نفس اليوم» و«معلق» صفر. تأكد من نشر Code.gs المحدّث ومن عنوان العمود.");
+  if(!f.hasSecond)notes.push("عمود Shipment Status غير موجود أو فاضٍ في الرد: كروت «نفس اليوم» و«معلق» و«الحالة النهائية للمعلق» صفر. تأكد من نشر Code.gs المحدّث ومن عنوان العمود.");
   if(f.others.size)notes.push("حالات طلب أخرى غير Done / Fail موجودة في الشيت (لا تدخل كارتي الناجحه والفشل): "+[...f.others].map(esc).join("، "));
   const nb=$("note");nb.innerHTML=notes.join("<br>");nb.classList.toggle("hidden",!notes.length);
   const tot=a.all;
@@ -198,11 +200,16 @@ function renderFM(){
    card({t:"طلبات الناجحه",u:"نسبة من إجمالي الطلبات",v:pf(a.d,a.n),s:`${fmt(a.dS)} شحنة · ${fmt(a.d)} طلب`,tone:"--ok",def:"الحالة = Done — الشحنات مربوطة بهذه الطلبات"})+
    card({t:"طلبات تم إرسالها في نفس اليوم",u:"طلب",v:fmt(a.sd),p:pf(a.sd,a.n),s:`${f.daily?fmt(a.sdS):"–"} شحنة`,tone:"--info",def:"عمود Shipment Status = تم الإرسال في نفس اليوم"})+
    card({t:"معلق",u:"طلب",v:fmt(a.p),p:pf(a.p,a.n),s:`${f.daily?fmt(a.pS):"–"} شحنة · اضغط لأسباب التعليق`,tone:"--warn",click:"progCard",def:"عمود Shipment Status = معلق — نفس تعريف داش بورد الفيرست مايل"})+
+   card({t:"الحالة النهائية للمعلق",u:"طلب · نسبة من المعلق",body:finList(fin,a.p),tone:"--warn",click:"finCard",def:"عمود Final Status للطلبات المعلقة · اضغط للتفاصيل"})+
    card({t:"فشل",u:"طلب",v:fmt(a.f),p:pf(a.f,a.n),s:"اضغط لعرض الأسباب والعملاء والأيام",tone:"--bad",click:"failCard",def:"الحالة = Fail"})+`</div>`;
-  $("progCard").onclick=()=>openDetail(ST_PROG);
+  $("progCard").onclick=$("finCard").onclick=()=>openDetail(ST_PROG);
   $("failCard").onclick=()=>openDetail(ST_FAIL);
   $("fmSub").textContent="الوحدة: طلب بيك أب — الشحنات من عمود «Pickup»"+(f.daily?"":" — تفصيل شهري فقط");
 }
+function finList(g,tot){
+  const all=[...g].sort((x,y)=>y[1]-x[1]),top=all.slice(0,5),rest=all.slice(5).reduce((x,r)=>x+r[1],0);
+  if(rest)top.push([`أخرى (${all.length-5})`,rest]);
+  return `<div class="fl">${top.map(([k,n])=>`<div><span>${esc(k)}</span><b>${fmt(n)} <i>${pf(n,tot)}</i></b></div>`).join("")||"<div><span>لا توجد طلبات معلقة</span></div>"}</div>`}
 function renderMM(){
   const m=S.mm,box=$("mm");if(m.st==="loading")return;
   if(m.st==="error"){box.innerHTML=`<div class="state err"><b>تعذّر تحميل بيانات الميديل مايل</b><br><span dir="ltr">${esc(m.err)}</span></div>`;return}
@@ -238,7 +245,7 @@ function renderFail(){
     <div id="t_finwrap"><h4 class="dh">الحالة النهائية للمعلق (Final Status)</h4><div id="t_fin"></div></div>`;$("srch").oninput=renderFail}
   const rs=failRecs(),tot=rs.reduce((x,r)=>x+r.n,0),totS=rs.reduce((x,r)=>x+r.sh,0),q=nk($("srch").value);
   const prog=S.kind===ST_PROG,none=r=>({...r,pr:r.pr||"بدون سبب مسجَّل"});let pn="";
-  $("h_reason").textContent=prog?"أسباب التعليق (Pending Reason)":"الأسباب";
+  $("h_reason").textContent=prog?"أسباب التعليق (Pending Reason)":"أسباب الفشل";
   if(!prog)$("t_reason").innerHTML=tbl(grp(rs,"reason").sort((a,b)=>b.n-a.n),"السبب",tot,totS);
   else if(S.fm.prMode==="daily")$("t_reason").innerHTML=tbl(grp(rs.map(none),"pr").sort((a,b)=>b.n-a.n),"سبب التعليق",tot,totS);
   else if(S.fm.prMode==="monthly"){const ms=S.fm.prM.filter(r=>okM(r.m)).map(none);
@@ -248,7 +255,7 @@ function renderFail(){
   $("pr_note").innerHTML=pn?`<div class="note" style="margin:0 0 8px">${pn}</div>`:"";
   $("t_client").innerHTML=tbl(grp(rs,"client").filter(r=>!q||nk(r.k).includes(q)).sort((a,b)=>b.n-a.n),"العميل",tot,totS);
   $("t_finwrap").classList.toggle("hidden",S.kind!==ST_PROG);
-  if(S.kind===ST_PROG)$("t_fin").innerHTML=tbl(grp(rs.map(r=>({...r,fin:r.fin||"بدون حالة نهائية"})),"fin").sort((a,b)=>b.n-a.n),"الحالة النهائية",tot,totS);
+  if(S.kind===ST_PROG)$("t_fin").innerHTML=tbl(grp(rs.map(r=>({...r,fin:r.fin||NO_FIN})),"fin").sort((a,b)=>b.n-a.n),"الحالة النهائية",tot,totS);
   $("t_day").innerHTML=tbl(grp(rs,"d").sort((a,b)=>a.k<b.k?1:-1),"اليوم",tot,totS);
 }
 function openDetail(k){S.kind=k;$("mdBody").innerHTML="";
