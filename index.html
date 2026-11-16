@@ -140,19 +140,21 @@ function csv(txt){const R=[];let r=[],f="",q=false;
     else if(ch==='"')q=true;else if(ch===","){r.push(f);f=""}
     else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&txt[i+1]==="\n")i++;r.push(f);f="";R.push(r);r=[]}else f+=ch}
   if(f!==""||r.length){r.push(f);R.push(r)}return R}
-function mmRow(c){
+function mmRow(c,ri){
   const dm=cl(c[0]).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/),b=canonB(c[2]);if(!dm||!b)return null;
   const mo=String(+dm[2]).padStart(2,"0"),d=`${dm[3]}-${mo}-${dm[1].padStart(2,"0")}`;
   const num=x=>{const t=cl(x).replace(/,/g,"");return t===""||isNaN(+t)?null:+t};
   let sh=num(c[4]),bg=num(c[5]);if(d==="2026-02-18"&&sh!=null&&bg!=null&&bg>sh)[sh,bg]=[bg,sh];
-  return {d,m:`${dm[3]}-${mo}`,b,sh:sh||0,out:nk(cl(c[3]))===OUT_K,stTxt:cl(c[3])}}
+  return {d,m:`${dm[3]}-${mo}`,b,sh:sh||0,out:nk(cl(c[3]))===OUT_K,stTxt:cl(c[3]),why:(ri>=0&&cl(c[ri]))||cl(c[3])}}
 async function loadMM(){
   const base=`https://docs.google.com/spreadsheets/d/${MM_SHEET_ID}`;
   let txt="",err;
   for(const u of [`${base}/export?format=csv&_=${Date.now()}`,`${base}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(MM_TAB)}&_=${Date.now()}`]){
     try{const r=await fetch(u,{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);const t=await r.text();if(/^\s*</.test(t))throw new Error("الشيت غير متاح للقراءة العامة");txt=t;break}catch(e){err=e}}
   if(!txt)throw err||new Error("تعذّر الاتصال");
-  const out=[];for(const c of csv(txt).slice(1)){if(c.every(x=>!cl(x)))continue;const o=mmRow(c);if(o)out.push(o)}
+  /* سبب الترحيل: عمود عنوانه يحتوي «سبب»/Reason إن وُجد، وإلا نص حالة الشحنة (العمود D) */
+  const all=csv(txt),ri=(all[0]||[]).findIndex(h=>/سبب|reason/i.test(cl(h)));
+  const out=[];for(const c of all.slice(1)){if(c.every(x=>!cl(x)))continue;const o=mmRow(c,ri);if(o)out.push(o)}
   if(!out.length)throw new Error("لم يتم العثور على صفوف صالحة");return out}
 const snapRecs=s=>s.rows.map(([d,bi,sh,bg,o])=>({d,m:d.slice(0,7),b:s.branches[bi],sh,out:!!o}));
 
@@ -206,7 +208,8 @@ function renderMM(){
   box.innerHTML=`<div class="grid">`+
    card({t:"إجمالي الأوردرات",u:"أوردر",v:fmt(tot),tone:"--blue",def:"كل الأوردرات التي خرجت من الميديل مايل"})+
    card({t:"أوردرات تم توزيعها",u:"أوردر",v:fmt(out),p:pf(out,tot),tone:"--ok",def:"خرجت في نفس اليوم — الحالة «في الطريق للفرع»"})+
-   card({t:"أوردرات مرحَّلة",u:"أوردر",v:fmt(pr),p:pf(pr,tot),tone:"--warn",def:"الحالة غير «في الطريق للفرع»"})+`</div>`;
+   card({t:"أوردرات مرحَّلة",u:"أوردر",v:fmt(pr),p:pf(pr,tot),s:"اضغط لعرض الأسباب والفروع والأيام",tone:"--warn",click:"mmPend",def:"الحالة غير «في الطريق للفرع»"})+`</div>`;
+  $("mmPend").onclick=()=>openDetail("mm");
 }
 function renderSrc(){
   const f=S.fm,m=S.mm,c=(k,t)=>`<span class="chip ${k}">${t}</span>`;
@@ -225,7 +228,21 @@ function tbl(rows,first,tot,totS){
   <tbody>${rows.map(r=>`<tr><td>${esc(r.k==="N/A"?"بدون سبب مسجَّل":r.k)}</td><td class="n">${fmt(r.n)}</td><td class="n">${pf(r.n,tot)}</td><td class="n">${fmt(r.sh)}</td></tr>`).join("")||'<tr><td colspan="4">لا بيانات</td></tr>'}</tbody>
   <tfoot><tr><td>الإجمالي (${fmt(rows.length)})</td><td class="n">${fmt(tot)}</td><td class="n">100%</td><td class="n">${fmt(totS)}</td></tr></tfoot></table></div>`;
 }
+function tblMM(rows,first,tot){
+  return `<div class="tw"><table><thead><tr><th>${first}</th><th class="n">الأوردرات المرحَّلة</th><th class="n">% من المرحَّل</th></tr></thead>
+  <tbody>${rows.map(r=>`<tr><td>${esc(r.k)}</td><td class="n">${fmt(r.sh)}</td><td class="n">${pf(r.sh,tot)}</td></tr>`).join("")||'<tr><td colspan="3">لا بيانات</td></tr>'}</tbody>
+  <tfoot><tr><td>الإجمالي (${fmt(rows.length)})</td><td class="n">${fmt(tot)}</td><td class="n">${tot?"100%":"–"}</td></tr></tfoot></table></div>`;
+}
+function renderMMDet(){
+  const rs=mmRecs().filter(r=>!r.out).map(r=>({...r,n:r.sh,why:r.why||"بدون حالة مسجَّلة"})),tot=rs.reduce((x,r)=>x+r.sh,0);
+  $("mdBody").innerHTML=`<h4 class="dh">أسباب الترحيل</h4>`+
+    (S.mm.src==="live"?tblMM(grp(rs,"why").sort((a,b)=>b.sh-a.sh),"السبب (حالة الشحنة)",tot)
+      :'<div class="state">الأسباب غير متاحة في اللقطة المحفوظة — تظهر عند نجاح القراءة المباشرة من شيت Daily pickup.</div>')+
+    `<h4 class="dh">الفروع</h4>`+tblMM(grp(rs,"b").sort((a,b)=>b.sh-a.sh),"الفرع",tot)+
+    `<h4 class="dh">الأيام</h4>`+tblMM(grp(rs,"d").sort((a,b)=>a.k<b.k?1:-1),"اليوم",tot);
+}
 function renderFail(){
+  if(S.kind==="mm")return renderMMDet();
   const body=$("mdBody");
   if(!S.fm.hasFail||(S.kind===ST_PROG&&!S.fm.hasProg)){body.innerHTML='<div class="state">هذه التفاصيل تتطلب نشر Code.gs المحدّث (حقل statusDetail).</div>';return}
   if(!$("t_reason")){body.innerHTML=`<h4 class="dh">الأسباب</h4><div id="t_reason"></div>
@@ -240,7 +257,7 @@ function renderFail(){
   $("t_day").innerHTML=tbl(grp(rs,"d").sort((a,b)=>a.k<b.k?1:-1),"اليوم",tot,totS);
 }
 function openDetail(k){S.kind=k;$("mdBody").innerHTML="";
-  $("mdTitle").textContent=k===ST_PROG?"تفاصيل In progress":"تفاصيل الطلبات الفاشلة";
+  $("mdTitle").textContent=k==="mm"?"تفاصيل الأوردرات المرحَّلة — الميديل مايل":k===ST_PROG?"تفاصيل In progress":"تفاصيل الطلبات الفاشلة";
   $("ov").classList.remove("hidden");$("ov").scrollTop=0;renderFail()}
 $("close").onclick=()=>$("ov").classList.add("hidden");
 $("ov").onclick=e=>{if(e.target.id==="ov")$("ov").classList.add("hidden")};
